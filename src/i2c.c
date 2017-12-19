@@ -1,6 +1,7 @@
 #include <mruby.h>
 #include <mruby/array.h>
 #include <mruby/string.h>
+#include <mruby/error.h>
 #include <mruby/value.h>
 #include <mruby/variable.h>
 
@@ -40,6 +41,43 @@
 #define I2C_TYPE_LONG_DOUBLE              12 
 #define I2C_TYPE_STRING                   13 
 #define I2C_TYPE_END                      14
+
+static mrb_value error_text(mrb_state *mrb, int errno) {
+  char errmsg[30];
+  switch( errno ) {
+    case ESP_OK : 
+      return mrb_str_new_cstr(mrb,"ESP_OK");
+    case ESP_FAIL : 
+      return mrb_str_new_cstr(mrb,"ESP_FAIL");
+    case ESP_ERR_NO_MEM : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_NO_MEM");
+    case ESP_ERR_INVALID_ARG : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_ARG");
+    case ESP_ERR_INVALID_STATE : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_STATE");
+    case ESP_ERR_INVALID_SIZE : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_SIZE");
+    case ESP_ERR_NOT_FOUND : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_NOT_FOUND");
+    case ESP_ERR_NOT_SUPPORTED : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_NOT_SUPPORTED");
+    case ESP_ERR_TIMEOUT : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_TIMEOUT");
+    case ESP_ERR_INVALID_RESPONSE : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_RESPONSE");
+    case ESP_ERR_INVALID_CRC : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_CRC");
+    case ESP_ERR_INVALID_VERSION : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_VERSION");
+    case ESP_ERR_INVALID_MAC : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_INVALID_MAC");
+    case ESP_ERR_WIFI_BASE : 
+      return mrb_str_new_cstr(mrb,"ESP_ERR_WIFI_BASE");
+    default :
+      sprintf(errmsg,"Unknown ESP_Mruby Error: %d", errno );
+      return mrb_str_new_cstr(mrb,errmsg);
+  }
+}
 
 static mrb_value
 mrb_esp32_i2c_init(mrb_state *mrb, mrb_value self)
@@ -189,6 +227,84 @@ static esp_err_t i2c_example_master_sensor_test(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_esp32_i2c_send_send(mrb_state *mrb, mrb_value self) {
+    mrb_value        send_register, send_data, port;
+    mrb_int          addr;
+    i2c_cmd_handle_t cmd;
+    esp_err_t        err;
+
+    printf("mrb_esp32_i2c_send_receive\n");
+
+    mrb_get_args(mrb, "iSS", &addr, &send_register, &send_data);
+
+    printf("mrb_esp32_i2c_send_send send_register = %s %d\n", RSTRING_PTR(send_register),RSTRING_LEN(send_register));
+    printf("mrb_esp32_i2c_send_send send_data     = %s %d\n", RSTRING_PTR(send_data),    RSTRING_LEN(send_data));
+
+    port = mrb_iv_get(mrb, self, mrb_intern_lit(mrb, "@port"));
+
+    cmd = i2c_cmd_link_create();
+
+    i2c_master_start(cmd);
+    printf("mrb_esp32_i2c_send_send addr=%d\n",(addr << 1 ) | I2C_MASTER_WRITE);
+    printf("mrb_esp32_i2c_send_send portTICK_RATE_MS=%d\n",portTICK_RATE_MS);
+    i2c_master_write_byte(cmd, (addr << 1 ) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+    if (1 == RSTRING_LEN(send_register)) {
+      printf("111111mrb_esp32_i2c_send_send single_byte_send = %d \n", (uint8_t) *RSTRING_PTR(send_register));
+      i2c_master_write_byte(cmd, *RSTRING_PTR(send_register), ACK_CHECK_EN);
+    } else {
+      printf("XXXXXmrb_esp32_i2c_send_send multi_byte_send=0\n");
+      if (!mrb_nil_p(send_register)) {
+        i2c_master_write(cmd, RSTRING_PTR(send_register), RSTRING_LEN(send_register), ACK_CHECK_EN);
+      }
+    }
+/*    i2c_master_stop(cmd);
+
+    printf( "send i2c_num = %d\n", mrb_fixnum(port) );
+
+    err = i2c_master_cmd_begin(mrb_fixnum(port), cmd, 1000 / portTICK_RATE_MS);
+
+    i2c_cmd_link_delete(cmd);
+
+    if (err != ESP_OK) {
+      printf( "Returning error A = %d\n", err);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,err)));
+      //return mrb_fixnum_value(err);
+    }
+
+    vTaskDelay(30 / portTICK_RATE_MS);
+
+    cmd = i2c_cmd_link_create();
+
+    i2c_master_start(cmd);
+    printf( "send address = %d %d\n", (addr << 1 ) | I2C_MASTER_WRITE, ACK_CHECK_EN );
+    i2c_master_write_byte(cmd, (addr << 1 ) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+*/
+    printf( "Z\n");
+    if (1 == RSTRING_LEN(send_data)) {
+      printf("111111mrb_esp32_i2c_send_send single_byte_send = %d \n", (uint8_t) *RSTRING_PTR(send_data));
+      i2c_master_write_byte(cmd, *RSTRING_PTR(send_data), ACK_CHECK_EN);
+    } else {
+      printf("XXXXXmrb_esp32_i2c_send_send single_byte_send=0\n");
+      if (!mrb_nil_p(send_data)) {
+        i2c_master_write(cmd, RSTRING_PTR(send_data), RSTRING_LEN(send_data), ACK_CHECK_EN);
+      }
+    }
+
+    i2c_master_stop(cmd);
+
+    err = i2c_master_cmd_begin(mrb_fixnum(port), cmd, 1000 / portTICK_RATE_MS);
+
+    i2c_cmd_link_delete(cmd);
+
+    if (0 != err) {
+      printf( "Returning error B = %d\n", err);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,err)));
+    }
+
+    return mrb_fixnum_value(ESP_OK);
+}
+
+static mrb_value
 mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
     mrb_value        send_string, port;
     mrb_int          addr, read_len, receive_data_type;
@@ -198,9 +314,9 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
 
              char                    char_val;
              char                    char_val_ary[2] = "\0\0";
-      signed char             signed_char_val;
-    unsigned char           unsigned_char_val;
-             short                  short_val;
+      signed char             signed_char_val = -127;
+    unsigned char           unsigned_char_val =    0;
+             short                  short_val =    0;
     unsigned short         unsigned_short_val;
              long                    long_val;
     unsigned long           unsigned_long_val;
@@ -212,7 +328,9 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
 
     printf("mrb_esp32_i2c_send_receive\n");
 
-    mrb_get_args(mrb, "Siii", &send_string, &addr, &receive_data_type, &read_len);
+    read_len = 0;
+
+    mrb_get_args(mrb, "Sii|i", &send_string, &addr, &receive_data_type, &read_len);
 
     //send_data = (uint8_t) *RSTRING_PTR(send_string);
 
@@ -220,10 +338,13 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
     printf("mrb_esp32_i2c_send_receive send_data = %s\n", RSTRING_PTR(send_string));
 
     if ( read_len > I2C_MAX_READ_BUFFER_LENGTH) {
-      return mrb_fixnum_value(ESP_ERR_INVALID_SIZE);
+      printf("RAISING INVALID SIZE = %d\n", read_len);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_INVALID_SIZE)));
+      //return mrb_fixnum_value(ESP_ERR_INVALID_SIZE);
     }
     if (( 0 == receive_data_type ) || ( I2C_TYPE_END <= receive_data_type )) {
-      return mrb_fixnum_value(ESP_ERR_INVALID_ARG);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_INVALID_ARG)));
+      //return mrb_fixnum_value(ESP_ERR_INVALID_ARG);
     }
 
     if (I2C_TYPE_STRING == receive_data_type)
@@ -238,14 +359,17 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
     printf("mrb_esp32_i2c_send_receive portTICK_RATE_MS=%d\n",portTICK_RATE_MS);
     i2c_master_write_byte(cmd, (addr << 1 ) | I2C_MASTER_WRITE, ACK_CHECK_EN);
     if (1 == RSTRING_LEN(send_string)) {
-      printf("mrb_esp32_i2c_send_receive single_byte_send=0\n");
+      printf("111111mrb_esp32_i2c_send_receive single_byte_send = %d \n", (uint8_t) *RSTRING_PTR(send_string));
       i2c_master_write_byte(cmd, *RSTRING_PTR(send_string), ACK_CHECK_EN);
     } else {
+      printf("XXXXXmrb_esp32_i2c_send_receive single_byte_send=0\n");
       if (!mrb_nil_p(send_string)) {
         i2c_master_write(cmd, RSTRING_PTR(send_string), RSTRING_LEN(send_string), ACK_CHECK_EN);
       }
     }
     i2c_master_stop(cmd);
+
+
 
     printf( "send i2c_num = %d\n", mrb_fixnum(port) );
 
@@ -257,7 +381,9 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
       printf( "Returning error A = %d\n", err);
       if (I2C_TYPE_STRING == receive_data_type)
         free(buffer);
-      return mrb_fixnum_value(err);
+
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,err)));
+      //return mrb_fixnum_value(err);
     }
 
     vTaskDelay(30 / portTICK_RATE_MS);
@@ -289,7 +415,8 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
         i2c_master_read_byte(cmd, &signed_char_val, NACK_VAL);
         break;
       case I2C_TYPE_UNSIGNED_CHAR      :
-        i2c_master_read_byte(cmd, &unsigned_char_val, NACK_VAL);
+    printf( "UCUCUCUCUCUCUCUUCUCUCUUC\n");
+        i2c_master_read_byte(cmd, &high_byte, NACK_VAL);
         break;
       case I2C_TYPE_SHORT              :
     printf( "C\n");
@@ -389,7 +516,7 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
       printf( "Returning error B = %d\n", err);
       if (I2C_TYPE_STRING == receive_data_type)
         free(buffer);
-      return mrb_fixnum_value(err);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,err)));
     } else {
 
       mrb_value newval;
@@ -400,7 +527,8 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
         case I2C_TYPE_SIGNED_CHAR        :
           return mrb_fixnum_value(signed_char_val);
         case I2C_TYPE_UNSIGNED_CHAR      :
-          return mrb_fixnum_value(unsigned_char_val);
+          printf("Returning unsigned char val %d\n",high_byte);
+          return mrb_fixnum_value(high_byte);
         case I2C_TYPE_SHORT              :
           short_val = (high_byte << 8 | low_byte);
           return mrb_fixnum_value(short_val);
@@ -408,27 +536,267 @@ mrb_esp32_i2c_send_receive(mrb_state *mrb, mrb_value self) {
           unsigned_short_val = (high_byte << 8 | low_byte);
           return mrb_fixnum_value(unsigned_short_val);
         case I2C_TYPE_LONG               :
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_UNSIGNED_LONG      :
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_LONG_LONG          : 
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_UNSIGNED_LONG_LONG :
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_FLOAT              :
           if (4 == sizeof(float_val)) {
             newval.value.f = float_val;
             return newval;
           }
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_DOUBLE             :
           if (4 == sizeof(double_val)) {
             newval.value.f = double_val;
             return newval;
           }
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_LONG_DOUBLE        :
-          return mrb_fixnum_value(ESP_ERR_NOT_SUPPORTED);
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_STRING             :
+          printf( "Returning binary data C\n");
+          printf("sensor val: %f\n", ( ((uint8_t) buffer[0]) << 8 | ((uint8_t) buffer[1]) ) / 1.2);
+          newval = mrb_str_new_cstr(mrb,buffer);
+          free(buffer);
+          return newval;
+      }
+    }
+  return mrb_fixnum_value(ESP_FAIL);
+}
+
+static mrb_value
+mrb_esp32_i2c_send_read_immediate(mrb_state *mrb, mrb_value self) {
+    mrb_value        send_string, port;
+    mrb_int          addr, read_len, receive_data_type;
+    i2c_cmd_handle_t cmd;
+    esp_err_t        err;
+    char            *buffer; //[I2C_MAX_READ_BUFFER_LENGTH+1];
+
+             char                    char_val;
+             char                    char_val_ary[2] = "\0\0";
+      signed char             signed_char_val = -127;
+    unsigned char           unsigned_char_val =    0;
+             short                  short_val =    0;
+    unsigned short         unsigned_short_val;
+             long                    long_val;
+    unsigned long           unsigned_long_val;
+        long long               long_long_val;
+    unsigned long long unsigned_long_long_val;
+             float                  float_val;
+             double                double_val;
+        long double           long_double_val;
+
+    printf("mrb_esp32_i2c_send_receive\n");
+
+    read_len = 0;
+
+    mrb_get_args(mrb, "Sii|i", &send_string, &addr, &receive_data_type, &read_len);
+
+    //send_data = (uint8_t) *RSTRING_PTR(send_string);
+
+    printf("mrb_esp32_i2c_send_receive read_len = %d\n", read_len);
+    printf("mrb_esp32_i2c_send_receive send_data = %s\n", RSTRING_PTR(send_string));
+
+    if ( read_len > I2C_MAX_READ_BUFFER_LENGTH) {
+      printf("RAISING INVALID SIZE = %d\n", read_len);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_INVALID_SIZE)));
+      //return mrb_fixnum_value(ESP_ERR_INVALID_SIZE);
+    }
+    if (( 0 == receive_data_type ) || ( I2C_TYPE_END <= receive_data_type )) {
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_INVALID_ARG)));
+      //return mrb_fixnum_value(ESP_ERR_INVALID_ARG);
+    }
+
+    if (I2C_TYPE_STRING == receive_data_type)
+      buffer = (char*) calloc( 1, read_len + 1 ); 
+
+    port = mrb_iv_get(mrb, self, mrb_intern_lit(mrb, "@port"));
+
+    cmd = i2c_cmd_link_create();
+
+    i2c_master_start(cmd);
+    printf("mrb_esp32_i2c_send_receive addr=%d\n",(addr << 1 ) | I2C_MASTER_WRITE);
+    printf("mrb_esp32_i2c_send_receive portTICK_RATE_MS=%d\n",portTICK_RATE_MS);
+    i2c_master_write_byte(cmd, (addr << 1 ) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+    if (1 == RSTRING_LEN(send_string)) {
+      printf("111111mrb_esp32_i2c_send_receive single_byte_send = %d \n", (uint8_t) *RSTRING_PTR(send_string));
+      i2c_master_write_byte(cmd, *RSTRING_PTR(send_string), ACK_CHECK_EN);
+    } else {
+      printf("XXXXXmrb_esp32_i2c_send_receive single_byte_send=0\n");
+      if (!mrb_nil_p(send_string)) {
+        i2c_master_write(cmd, RSTRING_PTR(send_string), RSTRING_LEN(send_string), ACK_CHECK_EN);
+      }
+    }
+
+    i2c_master_start(cmd);
+
+    printf( "send address = %d %d\n", (addr << 1 ) | I2C_MASTER_READ, ACK_CHECK_EN );
+    i2c_master_write_byte(cmd, (addr << 1 ) | I2C_MASTER_READ, ACK_CHECK_EN);
+    printf( "HHHHA\n");
+
+    uint8_t           high_byte;
+    uint8_t upper_mid_high_byte;
+    uint8_t  upper_mid_low_byte;
+    uint8_t       mid_high_byte;
+    uint8_t        mid_low_byte;
+    uint8_t lower_mid_high_byte;
+    uint8_t  lower_mid_low_byte;
+    uint8_t            low_byte;
+    uint8_t *dptr;
+    int      ack;
+    printf( "B\n");
+    switch (receive_data_type) {
+      case I2C_TYPE_CHAR               :
+        i2c_master_read_byte(cmd, &char_val, NACK_VAL);
+        break;
+      case I2C_TYPE_SIGNED_CHAR        :
+        i2c_master_read_byte(cmd, &signed_char_val, NACK_VAL);
+        break;
+      case I2C_TYPE_UNSIGNED_CHAR      :
+    printf( "UCUCUCUCUCUCUCUUCUCUCUUC\n");
+        i2c_master_read_byte(cmd, &high_byte, NACK_VAL);
+        break;
+      case I2C_TYPE_SHORT              :
+    printf( "C\n");
+        i2c_master_read_byte(cmd, &high_byte,  ACK_VAL);
+        i2c_master_read_byte(cmd,  &low_byte, NACK_VAL);
+        break;
+      case I2C_TYPE_UNSIGNED_SHORT     :
+        i2c_master_read_byte(cmd, &high_byte,  ACK_VAL);
+        i2c_master_read_byte(cmd,  &low_byte, NACK_VAL);
+        break;
+      case I2C_TYPE_LONG               :
+        i2c_master_read_byte(cmd,     &high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd, &mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,  &mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,      &low_byte,  NACK_VAL);
+        //long_val = (high_byte << 24 | mid_high_byte << 16 | mid_low_byte << 8 | low_byte);
+        break;
+      case I2C_TYPE_UNSIGNED_LONG      :
+        i2c_master_read_byte(cmd,     &high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd, &mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,  &mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,      &low_byte,  NACK_VAL);
+        //unsigned_long_val = (high_byte << 24 | mid_high_byte << 16 | mid_low_byte << 8 | low_byte);
+        break;
+      case I2C_TYPE_LONG_LONG          : 
+        i2c_master_read_byte(cmd,           &high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd, &upper_mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,  &upper_mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,       &mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,        &mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd, &lower_mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,  &lower_mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,            &low_byte,  NACK_VAL);
+        //long_long_val = ((long long)high_byte << 56 | (long long)upper_mid_high_byte << 48 | (long long)upper_mid_low_byte << 40 | (long long)mid_high_byte << 32 | (long long)mid_low_byte << 24 | (long long)lower_mid_high_byte << 16 | (long long)lower_mid_low_byte << 8 | (long long)low_byte);
+        break;
+      case I2C_TYPE_UNSIGNED_LONG_LONG :
+        i2c_master_read_byte(cmd,           &high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd, &upper_mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,  &upper_mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,       &mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,        &mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd, &lower_mid_high_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,  &lower_mid_low_byte,   ACK_VAL);
+        i2c_master_read_byte(cmd,            &low_byte,  NACK_VAL);
+        //unsigned_long_long_val = ((unsigned long long)high_byte << 56 | (unsigned long long)upper_mid_high_byte << 48 | (unsigned long long)upper_mid_low_byte << 40 | (unsigned long long)mid_high_byte << 32 | (unsigned long long)mid_low_byte << 24 | (unsigned long long)lower_mid_high_byte << 16 | (unsigned long long)lower_mid_low_byte << 8 | (unsigned long long)low_byte);
+        break;
+      case I2C_TYPE_FLOAT              :
+        dptr = (uint8_t*) &float_val;
+        ack  = ACK_VAL;
+        for (int i=0; i < sizeof(float_val); i++ ) {
+          if (i == (read_len - 1))
+            ack = NACK_VAL;
+          i2c_master_read_byte(cmd, dptr++, ack);
+        }
+        break;
+      case I2C_TYPE_DOUBLE             :
+        dptr = (uint8_t*) &double_val;
+        ack  = ACK_VAL;
+        for (int i=0; i < sizeof(double_val); i++ ) {
+          if (i == (read_len - 1))
+            ack = NACK_VAL;
+          i2c_master_read_byte(cmd, dptr++, ack);
+        }
+        break;
+      case I2C_TYPE_LONG_DOUBLE        :
+        dptr = (uint8_t*) &long_double_val;
+        ack  = ACK_VAL;
+        for (int i=0; i < sizeof(long_double_val); i++ ) {
+          if (i == (read_len - 1))
+            ack = NACK_VAL;
+          i2c_master_read_byte(cmd, dptr++, ack);
+        }
+        break;
+      case I2C_TYPE_STRING             :
+        dptr = (uint8_t*) buffer;
+        ack  = ACK_VAL;
+        for (int i=0; i < read_len; i++ ) {
+          if (i == (read_len - 1))
+            ack = NACK_VAL;
+          i2c_master_read_byte(cmd, dptr++, ack);
+        }
+        break;
+    }
+
+    i2c_master_stop(cmd);
+
+    err = i2c_master_cmd_begin(mrb_fixnum(port), cmd, 1000 / portTICK_RATE_MS);
+
+    printf("data_h: %02x\n", high_byte);
+    printf("data_l: %02x\n", low_byte);
+    printf("sensor val: %f\n", (high_byte << 8 | low_byte) / 1.2);
+
+
+    if (0 != err) {
+      printf( "Returning error B = %d\n", err);
+      if (I2C_TYPE_STRING == receive_data_type)
+        free(buffer);
+      mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,err)));
+    } else {
+
+      mrb_value newval;
+      switch (receive_data_type) {
+        case I2C_TYPE_CHAR               :
+          char_val_ary[0] = char_val;
+          return mrb_str_new_cstr(mrb,char_val_ary);
+        case I2C_TYPE_SIGNED_CHAR        :
+          return mrb_fixnum_value(signed_char_val);
+        case I2C_TYPE_UNSIGNED_CHAR      :
+          printf("Returning unsigned char val %d\n",high_byte);
+          return mrb_fixnum_value(high_byte);
+        case I2C_TYPE_SHORT              :
+          short_val = (high_byte << 8 | low_byte);
+          return mrb_fixnum_value(short_val);
+        case I2C_TYPE_UNSIGNED_SHORT     :
+          unsigned_short_val = (high_byte << 8 | low_byte);
+          return mrb_fixnum_value(unsigned_short_val);
+        case I2C_TYPE_LONG               :
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_UNSIGNED_LONG      :
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_LONG_LONG          : 
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_UNSIGNED_LONG_LONG :
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_FLOAT              :
+          if (4 == sizeof(float_val)) {
+            newval.value.f = float_val;
+            return newval;
+          }
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_DOUBLE             :
+          if (4 == sizeof(double_val)) {
+            newval.value.f = double_val;
+            return newval;
+          }
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
+        case I2C_TYPE_LONG_DOUBLE        :
+          mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, error_text(mrb,ESP_ERR_NOT_SUPPORTED)));
         case I2C_TYPE_STRING             :
           printf( "Returning binary data C\n");
           printf("sensor val: %f\n", ( ((uint8_t) buffer[0]) << 8 | ((uint8_t) buffer[1]) ) / 1.2);
@@ -452,6 +820,8 @@ mrb_mruby_esp32_i2c_gem_init(mrb_state* mrb)
   mrb_define_method(mrb, i2c, "deinit",                         mrb_esp32_i2c_deinit,           MRB_ARGS_NONE());
   mrb_define_method(mrb, i2c, "send",                           mrb_esp32_i2c_send,             MRB_ARGS_REQ(2));
   mrb_define_method(mrb, i2c, "send_receive",                   mrb_esp32_i2c_send_receive,     MRB_ARGS_ARG(3,1));
+  mrb_define_method(mrb, i2c, "send_read_immediate",            mrb_esp32_i2c_send_read_immediate,     MRB_ARGS_ARG(3,1));
+  mrb_define_method(mrb, i2c, "send_send",                      mrb_esp32_i2c_send_send,        MRB_ARGS_REQ(3));
   //mrb_define_method(mrb, i2c, "i2c_example_master_sensor_test", i2c_example_master_sensor_test, MRB_ARGS_NONE());
 
   mrb_define_const(mrb, i2c, "CHAR",                mrb_fixnum_value( I2C_TYPE_CHAR ));
